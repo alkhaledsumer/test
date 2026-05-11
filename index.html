@@ -1238,17 +1238,30 @@ tr:hover td{background:var(--gray-50)}
 
       <!-- زر تشخيص مؤقت -->
       <div style="margin-top:10px;text-align:center">
-        <button onclick="debugLogin()" style="background:rgba(192,136,32,.15);border:1px solid rgba(192,136,32,.3);color:rgba(144,96,10,1);border-radius:8px;padding:7px 16px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">🔍 اختبار الاتصال</button>
+        <button onclick="debugLogin()" style="background:rgba(192,136,32,.12);border:1px solid rgba(192,136,32,.25);color:rgba(140,95,10,1);border-radius:8px;padding:6px 14px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">🔍 اختبار الاتصال</button>
       </div>
-      <div id="debug-out" style="display:none;margin-top:8px;background:#f9f9f8;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:11px;font-family:monospace;word-break:break-all;color:#333;text-align:right;direction:ltr"></div>
-
-      <!-- زر مخفي لفتح إعدادات الربط — بدون باسوورد -->
+      <pre id="debug-out" style="display:none;margin-top:8px;background:#f5f5f5;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:10px;word-break:break-all;white-space:pre-wrap;color:#333;text-align:left;direction:ltr;max-height:200px;overflow-y:auto"></pre>
       <div style="margin-top:1.5rem;text-align:center">
         <span id="api-unlock-btn" onclick="unlockApiSetup()"
           style="display:inline-block;width:8px;height:8px;border-radius:50%;
                  background:rgba(150,140,120,.25);cursor:pointer;
                  transition:all .2s ease"
           title=""></span>
+      </div>
+
+      <!-- modal كلمة سر الرابط — بديل prompt() لأن الآيفون يحجبه -->
+      <div id="api-pass-modal" style="display:none;margin-top:0.85rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:14px 16px;backdrop-filter:blur(6px)">
+        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);margin-bottom:8px;text-align:center">🔒 أدخل كلمة السر</div>
+        <div style="display:flex;gap:8px">
+          <input type="password" id="api-pass-input" placeholder="كلمة السر"
+            style="flex:1;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:#fff;color:#222;padding:8px 10px;font-family:var(--font);font-size:13px;outline:none"
+            onkeydown="if(event.key==='Enter')confirmApiPass()">
+          <button onclick="confirmApiPass()"
+            style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">تأكيد</button>
+          <button onclick="cancelApiPass()"
+            style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 10px;font-family:var(--font);font-size:12px;cursor:pointer">✕</button>
+        </div>
+        <div id="api-pass-err" style="display:none;color:#ff8080;font-size:11px;font-weight:700;margin-top:6px;text-align:center">❌ كلمة السر غلط</div>
       </div>
 
       <!-- API setup - مخفي افتراضياً -->
@@ -2427,6 +2440,38 @@ function loadRememberMe() {
   } catch(e) {}
 }
 
+async function debugLogin() {
+  const out = document.getElementById('debug-out');
+  out.style.display = 'block';
+  out.textContent = '⏳ جاري الاختبار...';
+  const passIds = ['emp-pass','drv-pass','res-pass'];
+  let pass = '';
+  for (const id of passIds) {
+    const el = document.getElementById(id);
+    if (el && el.value.trim()) { pass = el.value.trim(); break; }
+  }
+  if (!pass) { out.textContent = '⚠️ أدخل كلمة السر أولاً ثم اضغط اختبار'; return; }
+  if (!API_URL) { out.textContent = '⚠️ لا يوجد رابط API محفوظ'; return; }
+  let lines = ['API: ' + API_URL.slice(0,70), 'Pass: "' + pass + '"', ''];
+  try {
+    const url = API_URL + '?action=loginUser&password=' + encodeURIComponent(pass);
+    const r = await fetch(url, { cache: 'no-store' });
+    const txt = await r.text();
+    lines.push('GET: ' + txt.slice(0, 400));
+  } catch(e) { lines.push('GET error: ' + e.message); }
+  lines.push('');
+  try {
+    const r = await fetch(API_URL, {
+      method: 'POST', cache: 'no-store',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ action: 'loginUser', password: pass })
+    });
+    const txt = await r.text();
+    lines.push('POST: ' + txt.slice(0, 400));
+  } catch(e) { lines.push('POST error: ' + e.message); }
+  out.textContent = lines.join('\n');
+}
+
 window.onload = () => {
   if (API_URL) document.getElementById('api-url-input').value = API_URL;
   setDates();
@@ -2459,92 +2504,7 @@ function startClock() {
 function unlockApiSetup() {
   document.getElementById('api-setup-box').style.display = 'block';
   document.getElementById('api-unlock-btn').style.display = 'none';
-}
-
-async function debugLogin() {
-  const out = document.getElementById('debug-out');
-  out.style.display = 'block';
-  out.textContent = '⏳ جاري الاختبار...';
-
-  // اقرأ كلمة السر من أي حقل ظاهر
-  const passMap = {
-    employee: document.getElementById('emp-pass'),
-    driver:   document.getElementById('drv-pass'),
-    reservations: document.getElementById('res-pass'),
-  };
-  let pass = '';
-  for (const [role, el] of Object.entries(passMap)) {
-    if (el && el.value.trim()) { pass = el.value.trim(); break; }
-  }
-
-  if (!pass) { out.textContent = '⚠️ أدخل كلمة السر أولاً ثم اضغط اختبار'; return; }
-  if (!API_URL) { out.textContent = '⚠️ لا يوجد رابط API'; return; }
-
-  let lines = [`API: ${API_URL.slice(0,60)}...`, `Pass: ${pass}`, '---'];
-
-  // اختبر GET
-  try {
-    const url = API_URL + '?action=loginUser&password=' + encodeURIComponent(pass);
-    const r = await fetch(url, { cache: 'no-store' });
-    const txt = await r.text();
-    lines.push('GET response:');
-    lines.push(txt.slice(0, 300));
-  } catch(e) {
-    lines.push('GET error: ' + e.message);
-  }
-
-  lines.push('---');
-
-  // اختبر POST
-  try {
-    const r = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-      body: JSON.stringify({ action: 'loginUser', password: pass }),
-      cache: 'no-store'
-    });
-    const txt = await r.text();
-    lines.push('POST response:');
-    lines.push(txt.slice(0, 300));
-  } catch(e) {
-    lines.push('POST error: ' + e.message);
-  }
-
-  out.textContent = lines.join('\n');
-}
-function cancelApiPass() {
-  document.getElementById('api-pass-modal').style.display = 'none';
-  document.getElementById('api-pass-input').value = '';
-  document.getElementById('api-pass-err').style.display = 'none';
-}
-async function confirmApiPass() {
-  const pass = document.getElementById('api-pass-input').value.trim();
-  const err  = document.getElementById('api-pass-err');
-  if (!pass) return;
-  err.style.display = 'none';
-  var granted = false;
-  // إذا في رابط API، تحقق منه عبر السيرفر
-  if (API_URL) {
-    try {
-      var res = await api({ action: 'login', password: pass });
-      granted = res && res.success;
-    } catch(e) {
-      granted = false;
-    }
-  }
-  // إذا ما في رابط (أول إعداد)، استخدم الباسوورد المبرمج مؤقتاً
-  if (!API_URL && pass === 'admin123') granted = true;
-
-  if (granted) {
-    document.getElementById('api-pass-modal').style.display = 'none';
-    document.getElementById('api-setup-box').style.display = 'block';
-    document.getElementById('api-unlock-btn').style.display = 'none';
-    document.getElementById('api-url-input').value = API_URL || '';
-  } else {
-    err.style.display = 'block';
-    document.getElementById('api-pass-input').value = '';
-    document.getElementById('api-pass-input').focus();
-  }
+  document.getElementById('api-url-input').value = API_URL || '';
 }
 function saveApiUrl() {
   API_URL = document.getElementById('api-url-input').value.trim();
@@ -2553,48 +2513,44 @@ function saveApiUrl() {
 }
 async function api(params) {
   if (!API_URL) { alert('يرجى إدخال رابط الـ Web App أولاً'); throw new Error('No API URL'); }
-  // timeout أطول على الموبايل — يحل مشكلة تجمّد اللوجن على iPhone
   const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
   const timeoutMs = isMobile ? 25000 : 15000;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    // نجرب POST أول (يحل مشكلة Safari/iPhone) — وإذا فشل نرجع لـ GET
+
   async function tryFetch(usePost) {
-    const ctrl2 = new AbortController();
-    const t2 = setTimeout(() => ctrl2.abort(), timeoutMs);
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
     try {
       let res;
       if (usePost) {
         res = await fetch(API_URL, {
           method: 'POST',
-          signal: ctrl2.signal,
+          signal: ctrl.signal,
           cache: 'no-store',
           headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
           body: JSON.stringify(params)
         });
       } else {
         res = await fetch(API_URL + '?' + new URLSearchParams(params), {
-          signal: ctrl2.signal,
+          signal: ctrl.signal,
           cache: 'no-store'
         });
       }
-      clearTimeout(t2);
+      clearTimeout(t);
       if (!res.ok) throw new Error('HTTP ' + res.status);
       return res.json();
     } catch(e) {
-      clearTimeout(t2);
+      clearTimeout(t);
       throw e;
     }
   }
+
   try {
     return await tryFetch(true);
   } catch(e1) {
-    // POST فشل — جرّب GET كـ fallback
     try {
       return await tryFetch(false);
     } catch(e2) {
-      if (e2.name === 'AbortError' || e1.name === 'AbortError') throw new Error('انتهت مهلة الاتصال — تحقق من الإنترنت');
+      if (e1.name === 'AbortError' || e2.name === 'AbortError') throw new Error('انتهت مهلة الاتصال — تحقق من الإنترنت');
       throw e2;
     }
   }
@@ -2641,13 +2597,13 @@ async function doLogin() {
     } catch(e) {
       document.getElementById('login-btn').disabled = false;
       document.getElementById('login-btn-text').textContent = 'تسجيل الدخول';
-      document.getElementById('login-err').textContent = '⚠️ تعذر الاتصال — تحقق من الإنترنت وحاول مرة ثانية';
+      document.getElementById('login-err').textContent = '⚠️ تعذر الاتصال — تحقق من الإنترنت';
       document.getElementById('login-err').style.display = 'block'; return;
     }
     document.getElementById('login-btn').disabled = false;
     document.getElementById('login-btn-text').textContent = 'تسجيل الدخول';
     if (!user || user.role !== 'employee') {
-      document.getElementById('login-err').textContent = !user ? '⚠️ تعذر الاتصال أو كلمة السر غير صحيحة' : 'كلمة السر غير صحيحة';
+      document.getElementById('login-err').textContent='كلمة السر غير صحيحة';
       document.getElementById('login-err').style.display='block'; return;
     }
     currentEmployee = user.name;
@@ -2684,13 +2640,13 @@ async function doLogin() {
     } catch(e) {
       document.getElementById('login-btn').disabled = false;
       document.getElementById('login-btn-text').textContent = 'تسجيل الدخول';
-      document.getElementById('login-err').textContent = '⚠️ تعذر الاتصال — تحقق من الإنترنت وحاول مرة ثانية';
+      document.getElementById('login-err').textContent = '⚠️ تعذر الاتصال — تحقق من الإنترنت';
       document.getElementById('login-err').style.display = 'block'; return;
     }
     document.getElementById('login-btn').disabled = false;
     document.getElementById('login-btn-text').textContent = 'تسجيل الدخول';
     if (!user || user.role !== 'reservations') {
-      document.getElementById('login-err').textContent = !user ? '⚠️ تعذر الاتصال أو كلمة السر غير صحيحة' : 'كلمة السر غير صحيحة';
+      document.getElementById('login-err').textContent='كلمة السر غير صحيحة';
       document.getElementById('login-err').style.display='block'; return;
     }
     if (document.getElementById('remember-me').checked) {
@@ -2714,13 +2670,13 @@ async function doLogin() {
     } catch(e) {
       document.getElementById('login-btn').disabled = false;
       document.getElementById('login-btn-text').textContent = 'تسجيل الدخول';
-      document.getElementById('login-err').textContent = '⚠️ تعذر الاتصال — تحقق من الإنترنت وحاول مرة ثانية';
+      document.getElementById('login-err').textContent = '⚠️ تعذر الاتصال — تحقق من الإنترنت';
       document.getElementById('login-err').style.display = 'block'; return;
     }
     document.getElementById('login-btn').disabled = false;
     document.getElementById('login-btn-text').textContent = 'تسجيل الدخول';
     if (!user || user.role !== 'driver') {
-      document.getElementById('login-err').textContent = !user ? '⚠️ تعذر الاتصال أو كلمة السر غير صحيحة' : 'كلمة السر غير صحيحة';
+      document.getElementById('login-err').textContent='كلمة السر غير صحيحة';
       document.getElementById('login-err').style.display='block'; return;
     }
     currentDriver = user.name;
@@ -3192,15 +3148,13 @@ async function deleteUser(i) {
 }
 
 async function getUserByPassword(pass) {
-  // محاولتان — تحل مشكلة الآيفون (Safari أحياناً يفشل أول request)
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const r = await api({ action:'loginUser', password: pass });
       if (r && r.success) return r.user;
-      if (r && r.success === false) return null; // كلمة سر خاطئة
+      if (r && r.success === false) return null;
     } catch(e) {
-      if (attempt === 2) throw e; // ارمي الخطأ بعد المحاولة الثانية
-      // انتظر 800ms قبل المحاولة الثانية
+      if (attempt === 2) throw e;
       await new Promise(res => setTimeout(res, 800));
     }
   }
