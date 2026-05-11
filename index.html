@@ -1236,6 +1236,12 @@ tr:hover td{background:var(--gray-50)}
 
       <p class="err-msg" id="login-err">اسم المستخدم أو كلمة السر غير صحيحة</p>
 
+      <!-- زر تشخيص مؤقت -->
+      <div style="margin-top:10px;text-align:center">
+        <button onclick="debugLogin()" style="background:rgba(192,136,32,.15);border:1px solid rgba(192,136,32,.3);color:rgba(144,96,10,1);border-radius:8px;padding:7px 16px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">🔍 اختبار الاتصال</button>
+      </div>
+      <div id="debug-out" style="display:none;margin-top:8px;background:#f9f9f8;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:11px;font-family:monospace;word-break:break-all;color:#333;text-align:right;direction:ltr"></div>
+
       <!-- زر مخفي لفتح إعدادات الربط — بدون باسوورد -->
       <div style="margin-top:1.5rem;text-align:center">
         <span id="api-unlock-btn" onclick="unlockApiSetup()"
@@ -2453,6 +2459,58 @@ function startClock() {
 function unlockApiSetup() {
   document.getElementById('api-setup-box').style.display = 'block';
   document.getElementById('api-unlock-btn').style.display = 'none';
+}
+
+async function debugLogin() {
+  const out = document.getElementById('debug-out');
+  out.style.display = 'block';
+  out.textContent = '⏳ جاري الاختبار...';
+
+  // اقرأ كلمة السر من أي حقل ظاهر
+  const passMap = {
+    employee: document.getElementById('emp-pass'),
+    driver:   document.getElementById('drv-pass'),
+    reservations: document.getElementById('res-pass'),
+  };
+  let pass = '';
+  for (const [role, el] of Object.entries(passMap)) {
+    if (el && el.value.trim()) { pass = el.value.trim(); break; }
+  }
+
+  if (!pass) { out.textContent = '⚠️ أدخل كلمة السر أولاً ثم اضغط اختبار'; return; }
+  if (!API_URL) { out.textContent = '⚠️ لا يوجد رابط API'; return; }
+
+  let lines = [`API: ${API_URL.slice(0,60)}...`, `Pass: ${pass}`, '---'];
+
+  // اختبر GET
+  try {
+    const url = API_URL + '?action=loginUser&password=' + encodeURIComponent(pass);
+    const r = await fetch(url, { cache: 'no-store' });
+    const txt = await r.text();
+    lines.push('GET response:');
+    lines.push(txt.slice(0, 300));
+  } catch(e) {
+    lines.push('GET error: ' + e.message);
+  }
+
+  lines.push('---');
+
+  // اختبر POST
+  try {
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+      body: JSON.stringify({ action: 'loginUser', password: pass }),
+      cache: 'no-store'
+    });
+    const txt = await r.text();
+    lines.push('POST response:');
+    lines.push(txt.slice(0, 300));
+  } catch(e) {
+    lines.push('POST error: ' + e.message);
+  }
+
+  out.textContent = lines.join('\n');
 }
 function cancelApiPass() {
   document.getElementById('api-pass-modal').style.display = 'none';
