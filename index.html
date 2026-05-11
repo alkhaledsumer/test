@@ -1236,28 +1236,13 @@ tr:hover td{background:var(--gray-50)}
 
       <p class="err-msg" id="login-err">اسم المستخدم أو كلمة السر غير صحيحة</p>
 
-      <!-- زر مخفي لفتح إعدادات الربط -->
+      <!-- زر مخفي لفتح إعدادات الربط — بدون باسوورد -->
       <div style="margin-top:1.5rem;text-align:center">
         <span id="api-unlock-btn" onclick="unlockApiSetup()"
           style="display:inline-block;width:8px;height:8px;border-radius:50%;
                  background:rgba(150,140,120,.25);cursor:pointer;
                  transition:all .2s ease"
           title=""></span>
-      </div>
-
-      <!-- modal كلمة سر الرابط — بديل prompt() لأن الآيفون يحجبه -->
-      <div id="api-pass-modal" style="display:none;margin-top:0.85rem;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.15);border-radius:12px;padding:14px 16px;backdrop-filter:blur(6px)">
-        <div style="font-size:12px;font-weight:700;color:rgba(255,255,255,0.75);margin-bottom:8px;text-align:center">🔒 أدخل كلمة السر</div>
-        <div style="display:flex;gap:8px">
-          <input type="password" id="api-pass-input" placeholder="كلمة السر"
-            style="flex:1;border-radius:8px;border:1px solid rgba(255,255,255,0.2);background:#fff;color:#222;padding:8px 10px;font-family:var(--font);font-size:13px;outline:none"
-            onkeydown="if(event.key==='Enter')confirmApiPass()">
-          <button onclick="confirmApiPass()"
-            style="background:var(--accent);color:#fff;border:none;border-radius:8px;padding:8px 14px;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap">تأكيد</button>
-          <button onclick="cancelApiPass()"
-            style="background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:8px 10px;font-family:var(--font);font-size:12px;cursor:pointer">✕</button>
-        </div>
-        <div id="api-pass-err" style="display:none;color:#ff8080;font-size:11px;font-weight:700;margin-top:6px;text-align:center">❌ كلمة السر غلط</div>
       </div>
 
       <!-- API setup - مخفي افتراضياً -->
@@ -2466,14 +2451,8 @@ function startClock() {
 //  API
 // ══════════════════════════════════════
 function unlockApiSetup() {
-  // نفتح الـ modal الداخلي بدل prompt() — لأن الآيفون يحجب prompt في PWA
-  const modal = document.getElementById('api-pass-modal');
-  const inp   = document.getElementById('api-pass-input');
-  const err   = document.getElementById('api-pass-err');
-  err.style.display = 'none';
-  inp.value = '';
-  modal.style.display = 'block';
-  setTimeout(() => inp.focus(), 100);
+  document.getElementById('api-setup-box').style.display = 'block';
+  document.getElementById('api-unlock-btn').style.display = 'none';
 }
 function cancelApiPass() {
   document.getElementById('api-pass-modal').style.display = 'none';
