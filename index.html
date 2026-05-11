@@ -2522,17 +2522,44 @@ async function api(params) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await fetch(API_URL + '?' + new URLSearchParams(params), {
-      signal: controller.signal,
-      cache: 'no-store'
-    });
-    clearTimeout(timer);
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  } catch(e) {
-    clearTimeout(timer);
-    if (e.name === 'AbortError') throw new Error('انتهت مهلة الاتصال — تحقق من الإنترنت');
-    throw e;
+    // نجرب POST أول (يحل مشكلة Safari/iPhone) — وإذا فشل نرجع لـ GET
+  async function tryFetch(usePost) {
+    const ctrl2 = new AbortController();
+    const t2 = setTimeout(() => ctrl2.abort(), timeoutMs);
+    try {
+      let res;
+      if (usePost) {
+        res = await fetch(API_URL, {
+          method: 'POST',
+          signal: ctrl2.signal,
+          cache: 'no-store',
+          headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+          body: JSON.stringify(params)
+        });
+      } else {
+        res = await fetch(API_URL + '?' + new URLSearchParams(params), {
+          signal: ctrl2.signal,
+          cache: 'no-store'
+        });
+      }
+      clearTimeout(t2);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    } catch(e) {
+      clearTimeout(t2);
+      throw e;
+    }
+  }
+  try {
+    return await tryFetch(true);
+  } catch(e1) {
+    // POST فشل — جرّب GET كـ fallback
+    try {
+      return await tryFetch(false);
+    } catch(e2) {
+      if (e2.name === 'AbortError' || e1.name === 'AbortError') throw new Error('انتهت مهلة الاتصال — تحقق من الإنترنت');
+      throw e2;
+    }
   }
 }
 
