@@ -978,7 +978,7 @@ tr:hover td{background:var(--gray-50)}
       <div class="login-divider-v"></div>
       <p class="login-copy">© 2026 مخابز سومر — جميع الحقوق محفوظة</p>
       <p class="login-copy" style="margin-top:4px;font-size:9px;letter-spacing:.3px">تصميم وتطوير: <span style="color:#475569;font-weight:700">Ali Khaled</span></p>
-      <div style="margin-top:10px;display:flex;justify-content:center"><span class="ver-badge">v1.39 · سومر ديليفري</span></div>
+      <div style="margin-top:10px;display:flex;justify-content:center"><span class="ver-badge">v1.3.9.1 · سومر ديليفري</span></div>
       <button class="about-btn" onclick="openAbout()">ℹ️ عن البرنامج</button>
     </div>
   </div>
@@ -1230,7 +1230,7 @@ tr:hover td{background:var(--gray-50)}
         <div class="topbar-title">مخابز وحلويات سومر</div>
         <div class="topbar-sub" id="emp-topbar-name">قسم الديليفري</div>
       </div>
-      <span class="ver-badge-topbar">v1.39</span>
+      <span class="ver-badge-topbar">v1.3.9.1</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px">
       <span class="topbar-badge" id="emp-time">--:--</span>
@@ -1601,7 +1601,7 @@ tr:hover td{background:var(--gray-50)}
         <div class="topbar-title">مخابز وحلويات سومر</div>
         <div class="topbar-sub">لوحة المدير العام · مدير النظام</div>
       </div>
-      <span class="ver-badge-topbar">v1.39</span>
+      <span class="ver-badge-topbar">v1.3.9.1</span>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
       <span class="topbar-badge" id="mgr-time">--:--</span>
@@ -2714,7 +2714,7 @@ function showScreen(name) {
   if (name === 'login') loadDriversList();
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById('screen-'+name).classList.add('active');
-  // v1.39: polling توفر السواق
+  // v1.3.9.1: polling توفر السواق
   if (name === 'manager' || name === 'employee') {
     setTimeout(function(){ if(typeof startAvailPolling==='function') startAvailPolling(); }, 1000);
   } else if (name === 'login') {
@@ -3741,7 +3741,7 @@ function printDriverDetailReport() {
 // ══════════════════════════════════════
 const CHANGELOG = [
   {
-    version: 'v1.39',
+    version: 'v1.3.9.1',
     date: '2026-05-16',
     changes: [
       'feat(driver): زر "رجعت للشركة ✅" في واجهة السائق — يسجّل وصوله مقر الشركة وتوفره للتوصيل فوراً',
@@ -3750,7 +3750,9 @@ const CHANGELOG = [
       'feat(dashboard): فلتر تاريخ في بطاقة التوفر — تقدر تشوف أي يوم سابق مَن رجع وامتى',
       'feat(notifications): إشعار فوري للمدير في الداشبورد عند توفر سائق جديد — بنر أخضر مع الاسم والوقت',
       'feat(notifications): إشعار فوري للموظف — بنر أخضر داكن فوق التبويبات يظهر تلقائياً عند رجوع سائق',
-      'feat(availability): polling تلقائي كل 60 ثانية في واجهة المدير والموظف لكشف السواق الجدد',
+      'fix(notifications): إصلاح عدم وصول الإشعار للمدير والموظف — أول poll يخزّن القائمة بصمت والإشعار يطلع للسائق الجديد فقط',
+      'fix(availability): تقليل interval من 60 ثانية إلى 30 ثانية لاستجابة أسرع',
+      'feat(availability): polling تلقائي كل 30 ثانية في واجهة المدير والموظف لكشف السواق الجدد',
       'feat(availability): الوقت يُعرض دائماً بصيغة إنجليزية 12h AM/PM (مثال: 2:30 PM)',
       'fix(incentives): استثناء شركات التوصيل (BALY/TOTERS/TALABAT) والسواق الخارجيين من تقرير الحوافز',
       'feat(assign): السائق الخارجي يُسجَّل تلقائياً كـ "تم التسليم" فور حفظ البيانات',
@@ -7820,7 +7822,7 @@ async function drvDeliver(rowIndex, orderNum) {
       <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%23c8922a' opacity='.15'/%3E%3Ctext x='32' y='42' text-anchor='middle' font-size='32'%3E🍞%3C/text%3E%3C/svg%3E" alt="logo">
     </div>
     <h2 class="about-sys-name">نظام إدارة التوصيل</h2>
-    <p class="about-sys-ver">مخابز وحلويات سومر · الإصدار v1.39</p>
+    <p class="about-sys-ver">مخابز وحلويات سومر · الإصدار v1.3.9.1</p>
 
     <div class="about-divider"></div>
 
@@ -8920,7 +8922,8 @@ window.addEventListener('appinstalled', () => {
 // ─── متغيرات ───────────────────────────────────────────
 let _availPollTimer    = null;
 let _lastAvailDrivers  = [];   // آخر قائمة معروفة (للمقارنة وكشف الجديد)
-const AVAIL_POLL_MS    = 60000; // كل دقيقة
+let _availFirstPoll    = true; // أول poll يملأ القائمة بصمت بدون إشعار
+const AVAIL_POLL_MS    = 30000; // كل 30 ثانية
 
 // ─── تنسيق الوقت بالإنجليزي HH:MM AM/PM ───────────────
 function fmtAvailTime(isoStr) {
@@ -9007,8 +9010,13 @@ async function loadAvailableDrivers() {
       </div>
     `).join('');
 
-    // كشف الجديد لإطلاق الإشعار
-    _detectNewAvailDrivers(drivers);
+    // أول poll: خزّن القائمة بصمت (السواق اللي سجلوا قبل فتح الصفحة لا تطلع إشعار)
+    // من الثاني فصاعداً: أطلق إشعار للجديد فقط
+    if (_availFirstPoll) {
+      _availFirstPoll = false;
+    } else {
+      _detectNewAvailDrivers(drivers);
+    }
     _lastAvailDrivers = drivers.map(d => d.name + '|' + d.isoTime);
 
   } catch(e) { /* تجاهل أخطاء الشبكة */ }
@@ -9070,7 +9078,9 @@ function _checkEmpAlertsEmpty() {
 // ─── تشغيل الـ polling ──────────────────────────────────
 function startAvailPolling() {
   stopAvailPolling();
-  // تحقق فوري ثم كل دقيقة
+  _availFirstPoll   = true;   // أول poll بصمت — الجديد فقط يطلع إشعار
+  _lastAvailDrivers = [];
+  // تحقق فوري ثم كل 30 ثانية
   loadAvailableDrivers();
   _availPollTimer = setInterval(loadAvailableDrivers, AVAIL_POLL_MS);
 }
@@ -9079,7 +9089,7 @@ function stopAvailPolling() {
   if (_availPollTimer) { clearInterval(_availPollTimer); _availPollTimer = null; }
 }
 
-// v1.39: ضبط تاريخ اليوم افتراضي في فلتر داشبورد المدير
+// v1.3.9.1: ضبط تاريخ اليوم افتراضي في فلتر داشبورد المدير
 document.addEventListener('DOMContentLoaded', () => {
   const inp = document.getElementById('avail-filter-date');
   if (inp) inp.value = (new Date()).toISOString().slice(0,10);
